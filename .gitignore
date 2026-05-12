@@ -1,3 +1,18 @@
+# 生データ（docs/episodes/ とは別の生ログ）
+episodes/
+
+# サイト以外のプロジェクトファイルは管理しない
+fantasy_story.py
+integrated_app.py
+server.py
+export_episode.py
+export_episode_usage.md
+world_settings.yaml
+introduction.html
+templates/
+CLAUDE.md
+memory.json
+
 # Python
 __pycache__/
 *.pyc
@@ -5,9 +20,6 @@ __pycache__/
 
 # バックアップ
 backup_*/
-
-# 機密・ローカル設定
-memory.json
 
 # Claude Code内部
 .claude/
