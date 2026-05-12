@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# バックアップ
+backup_*/
+
+# 機密・ローカル設定
+memory.json
+
+# Claude Code内部
+.claude/

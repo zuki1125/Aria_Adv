@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            /* 🔴 背景画像を画面いっぱいに表示する設定 */
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #222; /* 画像がない時の色 */
+            transition: background-image 0.5s ease-in-out; /* ふわっと切り替える */
+
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 100vh;
+        }
+        #comment-box {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.65);
+            color: #e0e0e0;
+            font-family: "Meiryo", sans-serif;
+            font-size: 16px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 105, 180, 0.5);
+            max-width: 320px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #comment-box .label {
+            color: #ff69b4;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+        #thinking-icon {
+            position: fixed;
+            top: 24px;
+            right: 32px;
+            font-size: 40px;
+            display: none;
+            filter: drop-shadow(0 0 8px #a78bfa);
+            animation: blink 0.8s ease-in-out infinite;
+        }
+        #status-box {
+            position: fixed;
+            top: 76px;
+            right: 32px;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: #c4b5fd;
+            font-family: "Meiryo", sans-serif;
+            font-size: 14px;
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(167, 139, 250, 0.4);
+            display: none;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.1; }
+        }
+        #message-box {
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-family: "Meiryo", sans-serif;
+            font-size: 32px;
+            padding: 20px 40px;
+            border-radius: 15px;
+            border: 2px solid #ff69b4;
+            width: 80%;
+            margin-bottom: 50px;
+            min-height: 100px;
+        }
+        #hint-box {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            color: rgba(255, 255, 255, 0.5);
+            font-family: "Meiryo", sans-serif;
+            font-size: 14px;
+            text-align: right;
+            pointer-events: none;
+        }
+        #goal-box {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.65);
+            color: #fde68a;
+            font-family: "Meiryo", sans-serif;
+            font-size: 15px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(251, 191, 36, 0.5);
+            max-width: 320px;
+            display: none;
+        }
+        #goal-box .label {
+            color: #fbbf24;
+            font-size: 12px;
+            margin-bottom: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div id="comment-box"><div class="label">💬 採用コメント</div><div id="comment-text">—</div></div>
+    <div id="goal-box"><div class="label">⚔️ 現在の目標</div><div id="goal-text"></div></div>
+    <div id="thinking-icon">🔮</div>
+    <div id="status-box"></div>
+    <div id="hint-box">💬 感想はそのままコメント　／　⚔️ 行動を指示するときは <span style="color: rgba(255,180,180,0.7);">＠をつけて</span>（例：＠宿屋に入って）</div>
+    <div id="message-box">接続を待っています...</div>
+
+    <script>
+        function updateHintPosition() {
+            const msgBox = document.getElementById('message-box');
+            const hintBox = document.getElementById('hint-box');
+            const rect = msgBox.getBoundingClientRect();
+            hintBox.style.top = (rect.top - hintBox.offsetHeight - 6) + 'px';
+        }
+        updateHintPosition();
+        window.addEventListener('resize', updateHintPosition);
+
+        setInterval(async () => {
+            const res = await fetch('/get_data');
+            const data = await res.json();
+            
+            // テキストの更新
+            document.getElementById('message-box').innerText = data.text;
+
+            // 採用コメントの更新
+            if (data.comment) document.getElementById('comment-text').innerText = data.comment;
+
+            // 現在の目標の更新
+            const goalBox = document.getElementById('goal-box');
+            if (data.goal) {
+                document.getElementById('goal-text').innerText = data.goal;
+                goalBox.style.display = 'block';
+            } else {
+                goalBox.style.display = 'none';
+            }
+
+            // ステータスの更新
+            const statusBox = document.getElementById('status-box');
+            if (data.status) {
+                statusBox.innerText = data.status;
+                statusBox.style.display = 'block';
+            } else {
+                statusBox.style.display = 'none';
+            }
+
+            // 画像があれば背景を更新
+            if (data.image) {
+                document.body.style.backgroundImage = "url('data:image/png;base64," + data.image + "')";
+            }
+
+            // 思考中アイコンの表示切替
+            document.getElementById('thinking-icon').style.display = data.thinking ? 'block' : 'none';
+        }, 1000);
+    </script>
+</body>
+</html>

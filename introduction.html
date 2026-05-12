@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI インタラクティブ配信 - 技術紹介</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 22px; }
+
+    body {
+      font-family: 'Segoe UI', 'Meiryo', sans-serif;
+      background: #0f0f1a;
+      color: #e8e8f0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      word-break: keep-all;
+      overflow-wrap: break-word;
+    }
+
+    /* ===== スライドコンテナ ===== */
+    .slideshow {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 40px 80px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .slide-inner {
+      width: 100%;
+      max-width: 1200px;
+    }
+
+    /* ===== ナビゲーションバー ===== */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 14px 24px;
+      background: #0a0a14;
+      border-top: 1px solid #1e293b;
+      flex-shrink: 0;
+    }
+
+    .nav-btn {
+      background: #1e1b4b;
+      border: 1px solid #4338ca;
+      color: #a5b4fc;
+      border-radius: 8px;
+      padding: 10px 32px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: #2d2a6e;
+      border-color: #7c3aed;
+      color: #c084fc;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .slide-counter {
+      color: #64748b;
+      font-size: 1rem;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .dot-nav {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #334155;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .dot.active {
+      background: #7c3aed;
+      transform: scale(1.3);
+    }
+
+    /* ===== 共通スタイル ===== */
+    h1 {
+      font-size: 2.8rem;
+      color: #c084fc;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    h2 {
+      font-size: 1.6rem;
+      color: #c084fc;
+      border-left: 5px solid #7c3aed;
+      padding-left: 16px;
+      margin-bottom: 32px;
+      white-space: nowrap;
+    }
+
+    .badge {
+      display: inline-block;
+      background: #7c3aed22;
+      border: 1px solid #7c3aed;
+      color: #c084fc;
+      border-radius: 999px;
+      padding: 6px 22px;
+      font-size: 0.95rem;
+      margin: 6px;
+      white-space: nowrap;
+    }
+
+    /* ===== スライド1: タイトル ===== */
+    .slide-title {
+      background: radial-gradient(ellipse at center, #1a0a2e 0%, #0f0f1a 70%);
+    }
+
+    .slide-title h1 { font-size: 3rem; margin-bottom: 24px; }
+
+    .slide-title .sub {
+      color: #94a3b8;
+      font-size: 1.2rem;
+      text-align: center;
+      margin-bottom: 36px;
+      white-space: nowrap;
+    }
+
+    .slide-title .badges { text-align: center; }
+
+    /* ===== スライド2: これは何？ ===== */
+    .concept-box {
+      background: #1e1b4b;
+      border: 1px solid #3730a3;
+      border-radius: 16px;
+      padding: 44px 52px;
+      font-size: 1.2rem;
+      line-height: 2.1;
+    }
+
+    .concept-box strong { color: #a5b4fc; }
+
+    /* ===== スライド3: フロー ===== */
+    .flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    .flow-step {
+      background: #1e1b4b;
+      border: 1px solid #4338ca;
+      border-radius: 14px;
+      padding: 24px 28px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .flow-step .icon { font-size: 2.6rem; }
+    .flow-step .name { font-size: 1.1rem; font-weight: bold; color: #e0e0f0; margin-top: 10px; white-space: nowrap; }
+    .flow-step .label { font-size: 0.85rem; color: #94a3b8; margin-top: 6px; white-space: nowrap; }
+
+    .flow-arrow { color: #7c3aed; font-size: 2rem; flex-shrink: 0; }
+
+    .flow-note {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 1rem;
+      color: #64748b;
+      white-space: nowrap;
+    }
+
+    /* ===== スライド4: 主な部品 ===== */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .card {
+      background: #16213e;
+      border: 1px solid #1e3a5f;
+      border-radius: 14px;
+      padding: 32px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover { border-color: #7c3aed; }
+    .card .card-icon { font-size: 3rem; margin-bottom: 16px; }
+    .card h3 { font-size: 1.1rem; color: #a5b4fc; margin-bottom: 12px; }
+    .card p { font-size: 1rem; color: #94a3b8; line-height: 1.8; }
+
+    /* ===== スライド5: 技術スタック ===== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 1rem;
+    }
+
+    th {
+      background: #1e1b4b;
+      color: #a5b4fc;
+      text-align: left;
+      padding: 16px 24px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 16px 24px;
+      border-bottom: 1px solid #1e293b;
+      color: #cbd5e1;
+      white-space: nowrap;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1a1a2e; }
+
+    .tag {
+      display: inline-block;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      padding: 3px 12px;
+      font-size: 0.95rem;
+      color: #94a3b8;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    /* ===== スライド6: 工夫したポイント ===== */
+    .points { display: grid; gap: 18px; }
+
+    .point {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      background: #111827;
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+
+    .point .num {
+      background: #7c3aed;
+      color: white;
+      font-weight: bold;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 1rem;
+    }
+
+    .point p { font-size: 1rem; color: #cbd5e1; line-height: 1.85; }
+    .point strong { color: #a5b4fc; }
+
+    /* ===== 問いかけスライド ===== */
+    .question-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-bottom: 36px;
+    }
+
+    .question-item {
+      background: #16213e;
+      border: 1px solid #1e3a5f;
+      border-radius: 12px;
+      padding: 22px 32px;
+      font-size: 1.15rem;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .question-item .q-mark {
+      font-size: 1.8rem;
+      color: #a5b4fc;
+      flex-shrink: 0;
+    }
+
+    .question-comment {
+      font-size: 1.05rem;
+      color: #94a3b8;
+      text-align: right;
+      font-style: italic;
+    }
+
+    /* ===== 強みスライド ===== */
+    .strength-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-bottom: 32px;
+    }
+
+    .strength-card {
+      background: linear-gradient(135deg, #1e1b4b, #16213e);
+      border: 2px solid #7c3aed;
+      border-radius: 16px;
+      padding: 36px 32px;
+      text-align: center;
+    }
+
+    .strength-card .s-icon { font-size: 3rem; margin-bottom: 16px; }
+
+    .strength-card .s-title {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #c084fc;
+      margin-bottom: 12px;
+      white-space: nowrap;
+    }
+
+    .strength-card .s-desc {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      line-height: 1.7;
+    }
+
+    /* ===== 安価スレスライド ===== */
+    .ankasure-box {
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 28px 36px;
+      margin-top: 24px;
+    }
+
+    .ankasure-box .box-label {
+      font-size: 0.85rem;
+      color: #7c3aed;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+      margin-bottom: 14px;
+    }
+
+    .ankasure-box p {
+      font-size: 1rem;
+      color: #94a3b8;
+      line-height: 1.9;
+    }
+
+    .ankasure-box strong { color: #a5b4fc; }
+
+    .lead-text {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #c084fc;
+      line-height: 1.9;
+      margin-bottom: 20px;
+      border-left: 5px solid #7c3aed;
+      padding-left: 16px;
+    }
+
+    /* ===== できたものスライド ===== */
+    .result-box {
+      background: linear-gradient(135deg, #1a0a2e, #0f172a);
+      border: 2px solid #7c3aed;
+      border-radius: 20px;
+      padding: 52px 60px;
+      text-align: center;
+    }
+
+    .result-box .r-label {
+      font-size: 0.9rem;
+      color: #7c3aed;
+      letter-spacing: 0.15em;
+      font-weight: bold;
+      margin-bottom: 28px;
+    }
+
+    .result-box .r-text {
+      font-size: 1.35rem;
+      color: #e0e0f0;
+      line-height: 2;
+    }
+
+    .result-box .r-text strong { color: #c084fc; }
+
+    .result-box .r-sub {
+      margin-top: 28px;
+      font-size: 0.95rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+<div class="slideshow">
+
+  <!-- スライド 1: タイトル -->
+  <div class="slide slide-title active">
+    <div class="slide-inner" style="text-align:center;">
+      <h1>AI インタラクティブ配信システム</h1>
+      <p class="sub">視聴者のコメントがそのままゲームになる、リアルタイム AI 体験</p>
+      <div class="badges">
+        <span class="badge">Twitch 対応</span>
+        <span class="badge">ローカル完結型</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- スライド 2: これは何？ -->
+  <div class="slide">
+    <div class="slide-inner">
+      <h2>これは何？</h2>
+      <div class="concept-box">
+        <p>
+          視聴者が配信のチャットに書いたコメントが、<strong>AIキャラクターへの「行動指示」</strong>になります。<br>
+          AIはその指示に従ってセリフを返し、同時に<strong>シーンに合った画像をリアルタイムで生成</strong>して配信画面に表示します。<br><br>
+          視聴者全員で物語を作る、参加型の AI 配信コンテンツです。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- スライド 3: AIの強みって何？ -->
+  <div class="slide">
+    <div class="slide-inner">
+      <h2>きっかけ：クリエイティブな面での「AIの強み」って何？</h2>
+      <div class="question-list">
+        <div class="question-item">
+          <span class="q-mark">？</span>
+          「人間のように対話ができる」
+        </div>
+        <div class="question-item">
+          <span class="q-mark">？</span>
+          「超速度で絵が描ける」
+        </div>
+      </div>
+      <p class="question-comment">……なんか即物的で、違う気がする。</p>
+    </div>
+  </div>
+
+  <!-- スライド 5: 自分の思うAIの強み -->
+  <div class="slide">
+    <div class="slide-inner">
+      <h2>自分の考えた「AIの強み」</h2>
+      <div class="strength-grid">
+        <div class="strength-card">
+          <div class="s-icon">♾️</div>
+          <div class="s-title">無限の自由度</div>
+          <div class="s-desc">何でもその場で作り出すことができる。<br>決められた選択肢がない。</div>
+        </div>
+        <div class="strength-card">
+          <div class="s-icon">⚡</div>
+          <div class="s-title">無限のアドリブ力</div>
+          <div class="s-desc">どんな問いにも応えることができる。<br>想定外の展開にも即対応。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- スライド 6: それをエンタメで活かすには？ -->
+  <div class="slide">
+    <div class="slide-inner">
+      <h2>2ちゃんの「安価スレ」みたいなことができるのでは？</h2>
+      <div class="ankasure-box">
+        <div class="box-label">▍安価スレとは</div>
+        <p>
+          掲示板2ちゃんねる発祥の参加型創作スレッド。<br>
+          スレ主が物語を書き進め、途中で <strong>「&gt;&gt;〇〇」（安価）</strong> と書き込む。<br>
+          その番号のレスをつけた読者が<strong>次の展開を決定</strong>し、<br>
+          スレ主がその指示に従って物語を続ける——という繰り返し。<br><br>
+          シナリオは一切なく、<strong>読者の一言でストーリーが無限に分岐する</strong>、<br>
+          インターネット特有のリアルタイム共同創作文化。
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- スライド 7: できたもの -->
+  <div class="slide">
+    <div class="slide-inner" style="display:flex; justify-content:center;">
+      <div class="result-box">
+        <div class="r-label">A N S W E R</div>
+        <p class="r-text">
+          クリエイターの用意するシナリオを<strong>全部捨てて、</strong><br>
+          物語の進行を <strong>100% AI に委ねた</strong><br>
+          視聴者参加型配信コンテンツ！
+        </p>
+        <p class="r-sub">視聴者のコメント × AIの無限アドリブ = 誰も予測できない物語</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- スライド 7: どうやって動くの？ -->
+  <div class="slide">
+    <div class="slide-inner">
+      <h2>どうやって動くの？</h2>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="icon">💬</div>
+          <div class="name">チャット</div>
+          <div class="label">視聴者がコメント</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">🧠</div>
+          <div class="name">AI（Gemma4）</div>
+          <div class="label">セリフ＆画像指示を生成</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">🎨</div>
+          <div class="name">画像生成AI</div>
+          <div class="label">シーン画像を描画</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="icon">📺</div>
+          <div class="name">配信画面</div>
+          <div class="label">OBS に自動反映</div>
+        </div>
+      </div>
+      <p class="flow-note">すべてインターネット不要・自分のPCの中だけで完結します（ローカル実行）</p>
+    </div>
+  </div>
+
+  <!-- スライド 8: 主な部品（技術紹介） -->
+  <div class="slide">
+    <div class="slide-inner">
+      <h2>主な部品</h2>
+      <div class="cards">
+        <div class="card">
+          <div class="card-icon">🤖</div>
+          <h3>会話AI（Gemma4）</h3>
+          <p>視聴者の指示を受け取り、キャラクターのセリフと「次に描く絵の内容」を考えます。会話の記憶も持ちます。</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🖼️</div>
+          <h3>画像生成AI（Stable Diffusion）</h3>
+          <p>会話AIが考えた絵の内容を受け取り、シーンに合ったイラストを自動生成します。1280×720px のHD画質。</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🐍</div>
+          <h3>Pythonプログラム</h3>
+          <p>Gemma4とStable Diffusionの橋渡しと、画面の更新を行うプログラム。チャットの受信から表示まで、全体の流れをまとめて管理します。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- スライド 5: 技術スタック -->
+  <div class="slide">
+    <div class="slide-inner">
+      <h2>使っている技術</h2>
+      <table>
+        <tr>
+          <th>役割</th>
+          <th>ツール</th>
+          <th>特徴</th>
+        </tr>
+        <tr>
+          <td>会話AI</td>
+          <td><span class="tag">Gemma4:e4b</span> + Ollama</td>
+          <td>完全ローカル動作・無料</td>
+        </tr>
+        <tr>
+          <td>画像生成</td>
+          <td><span class="tag">Stable Diffusion WebUI</span></td>
+          <td>完全ローカル・高品質</td>
+        </tr>
+        <tr>
+          <td>チャット受信（Twitch）</td>
+          <td><span class="tag">Python socket + IRC</span></td>
+          <td>匿名接続・API不要</td>
+        </tr>
+        <tr>
+          <td>表示サーバー</td>
+          <td><span class="tag">Flask</span>（Python）</td>
+          <td>軽量・シンプル</td>
+        </tr>
+        <tr>
+          <td>配信ソフト連携</td>
+          <td><span class="tag">OBS Studio</span>（ブラウザソース）</td>
+          <td>URL を貼るだけで画面反映</td>
+        </tr>
+        <tr>
+          <td>プログラミング言語</td>
+          <td><span class="tag">Python 3</span></td>
+          <td>すべて Python で統一</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /slideshow -->
+
+<!-- ナビゲーション -->
+<nav>
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" disabled>← 前へ</button>
+  <div class="dot-nav" id="dotNav"></div>
+  <span class="slide-counter" id="counter">1 / 9</span>
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)">次へ →</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  // ドット生成
+  const dotNav = document.getElementById('dotNav');
+  slides.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.onclick = () => goTo(i);
+    dotNav.appendChild(dot);
+  });
+
+  function goTo(index) {
+    slides[current].classList.remove('active');
+    dotNav.children[current].classList.remove('active');
+    current = index;
+    slides[current].classList.add('active');
+    dotNav.children[current].classList.add('active');
+    document.getElementById('counter').textContent = `${current + 1} / ${total}`;
+    document.getElementById('prevBtn').disabled = current === 0;
+    document.getElementById('nextBtn').disabled = current === total - 1;
+  }
+
+  function changeSlide(dir) {
+    const next = current + dir;
+    if (next >= 0 && next < total) goTo(next);
+  }
+
+  // キーボード操作
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') changeSlide(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   changeSlide(-1);
+  });
+</script>
+
+</body>
+</html>
